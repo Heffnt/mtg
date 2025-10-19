@@ -2,6 +2,8 @@
 
 Teaching language models to truly understand Magic: The Gathering.
 
+**Author**: Tom Heffernan
+
 ## Vision
 
 Magic: The Gathering has over 25,000 unique cards spanning 30+ years of design. Each card is a complex artifact with mechanics, rules interactions, flavor text, and strategic implications. This project aims to imbue large language models with deep, comprehensive MTG knowledge through full parameter fine-tuning.
