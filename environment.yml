@@ -1,0 +1,34 @@
+name: mtgenv
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Python version
+  - python>=3.11
+
+  # PyTorch pinned with matching CUDA to avoid op mismatches
+  - pytorch::pytorch=2.8.*
+  - pytorch::pytorch-cuda=12.8
+  - pytorch::torchvision=0.23.*
+  - pytorch::torchaudio=2.8.*
+  
+  # Core ML/AI frameworks
+  - conda-forge::transformers
+  - conda-forge::datasets
+  - conda-forge::accelerate
+  - conda-forge::peft
+  
+  # Training utilities
+  - conda-forge::wandb
+  - conda-forge::deepspeed
+  
+  # Additional dependencies via pip (not available or better via pip)
+  - pip
+  - pip:
+    - trl<0.9.0
+    - bitsandbytes
+    - "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+    - unsloth_zoo
+
