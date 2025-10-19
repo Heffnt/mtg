@@ -76,12 +76,15 @@ def load_jsonl(file_path):
             data.append(json.loads(line))
     return data
 
-def format_chat_template(example):
+def format_chat_template(example, tokenizer=None):
     """
     Format the messages into a single training text.
-    Assumes the tokenizer has a chat template.
+    Note: This will be called again by the trainer with the actual tokenizer.
+    For now, just pass through the messages.
     """
-    return {"text": example["messages"]}
+    # The SFTTrainer will apply the chat template automatically
+    # We just need to ensure the messages field exists
+    return example
 
 def prepare_dataset():
     """Load and prepare the training dataset with caching."""
@@ -95,20 +98,12 @@ def prepare_dataset():
     print(f"Loading training data from {TRAIN_DATA_PATH}...")
     train_data = load_jsonl(TRAIN_DATA_PATH)
 
-    # Convert to HuggingFace Dataset
+    # Convert to HuggingFace Dataset - this is already fast
+    print(f"Converting to HuggingFace Dataset format...")
     dataset = Dataset.from_list(train_data)
 
-    # Apply formatting with multiprocessing for speed
-    num_proc = min(os.cpu_count(), 16)  # Cap at 16 to avoid memory issues
-    print(f"Processing dataset with {num_proc} processes (first run only)...")
-    dataset = dataset.map(
-        format_chat_template,
-        num_proc=num_proc,
-        desc="Formatting chat templates"
-    )
-
-    # Cache the processed dataset for future runs
-    print(f"Caching processed dataset to {DATASET_CACHE_PATH}...")
+    # Cache the dataset for future runs (no processing needed - SFTTrainer handles it)
+    print(f"Caching dataset to {DATASET_CACHE_PATH}...")
     os.makedirs(CACHE_DIR, exist_ok=True)
     dataset.save_to_disk(DATASET_CACHE_PATH)
     print(f"✓ Dataset cached! Next run will be instant.")
@@ -304,7 +299,7 @@ def train():
         train_dataset=dataset,
         args=training_args,
         max_seq_length=MAX_SEQ_LENGTH,
-        dataset_text_field="text",
+        dataset_text_field="messages",  # Use messages field, not text
         packing=False,  # Disable packing for chat format
     )
     
