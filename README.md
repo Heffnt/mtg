@@ -2,7 +2,7 @@
 
 Teaching language models to truly understand Magic: The Gathering.
 
-**Author**: Tom Heffernan
+**Authors**: Tom Heffernan & Claude
 
 ## Vision
 
