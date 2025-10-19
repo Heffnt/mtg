@@ -98,32 +98,28 @@ def prepare_dataset():
 def setup_model_and_tokenizer():
     """Load model and tokenizer using Unsloth for full fine-tuning."""
     print(f"Loading model: {MODEL_NAME}")
-    
+
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=MODEL_NAME,
         max_seq_length=MAX_SEQ_LENGTH,
         dtype=DTYPE,
         load_in_4bit=LOAD_IN_4BIT,
     )
-    
-    # Configure for full fine-tuning (no LoRA adapters)
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r=0,  # r=0 means full fine-tuning, not LoRA
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                       "gate_proj", "up_proj", "down_proj"],
-        lora_alpha=0,
-        lora_dropout=0,
-        bias="none",
-        use_gradient_checkpointing="unsloth" if USE_GRADIENT_CHECKPOINTING else False,
-        random_state=3407,
-    )
-    
-    # Ensure tokenizer has chat template
+
+    # For full fine-tuning: enable gradient checkpointing on the base model
+    # Do NOT call get_peft_model - that's only for LoRA
+    if USE_GRADIENT_CHECKPOINTING:
+        model.gradient_checkpointing_enable()
+
+    # Ensure all parameters are trainable for full fine-tuning
+    for param in model.parameters():
+        param.requires_grad = True
+
+    # Ensure tokenizer has chat template (DeepSeek models should have one)
     if tokenizer.chat_template is None:
-        # Set a default chat template if none exists
+        print("Warning: No chat template found, setting a default one")
         tokenizer.chat_template = "{% for message in messages %}{% if message['role'] == 'system' %}{{ message['content'] + '\n' }}{% elif message['role'] == 'user' %}{{ 'User: ' + message['content'] + '\n' }}{% elif message['role'] == 'assistant' %}{{ 'Assistant: ' + message['content'] + '\n' }}{% endif %}{% endfor %}"
-    
+
     return model, tokenizer
 
 # ============================================================================
