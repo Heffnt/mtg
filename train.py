@@ -5,12 +5,16 @@ Supports both single-GPU and multi-GPU training
 
 import json
 import os
-from datasets import Dataset
+from datasets import Dataset, load_from_disk
 import wandb
 from unsloth import FastLanguageModel
 from trl import SFTTrainer
 from transformers import TrainingArguments, DataCollatorForSeq2Seq
 import torch
+
+# Enable TF32 for faster training on Ampere+ GPUs
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
 
 # ============================================================================
 # CONFIGURATION - Modify these parameters as needed
@@ -28,6 +32,8 @@ LOAD_IN_4BIT = False  # Set to False for full fine-tuning
 
 # Data Configuration
 TRAIN_DATA_PATH = "splits_full/train.jsonl"
+CACHE_DIR = ".cache"  # Local cache for models and datasets
+DATASET_CACHE_PATH = os.path.join(CACHE_DIR, "processed_dataset")
 
 # WandB Configuration
 WANDB_ENTITY = "heffnt-worcester-polytechnic-institute"
@@ -78,16 +84,35 @@ def format_chat_template(example):
     return {"text": example["messages"]}
 
 def prepare_dataset():
-    """Load and prepare the training dataset."""
+    """Load and prepare the training dataset with caching."""
+    # Check if cached processed dataset exists
+    if os.path.exists(DATASET_CACHE_PATH):
+        print(f"⚡ Loading cached dataset from {DATASET_CACHE_PATH}...")
+        dataset = load_from_disk(DATASET_CACHE_PATH)
+        print(f"✓ Loaded {len(dataset)} training examples from cache (instant!)")
+        return dataset
+
     print(f"Loading training data from {TRAIN_DATA_PATH}...")
     train_data = load_jsonl(TRAIN_DATA_PATH)
-    
+
     # Convert to HuggingFace Dataset
     dataset = Dataset.from_list(train_data)
-    
-    # Apply formatting
-    dataset = dataset.map(format_chat_template)
-    
+
+    # Apply formatting with multiprocessing for speed
+    num_proc = min(os.cpu_count(), 16)  # Cap at 16 to avoid memory issues
+    print(f"Processing dataset with {num_proc} processes (first run only)...")
+    dataset = dataset.map(
+        format_chat_template,
+        num_proc=num_proc,
+        desc="Formatting chat templates"
+    )
+
+    # Cache the processed dataset for future runs
+    print(f"Caching processed dataset to {DATASET_CACHE_PATH}...")
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    dataset.save_to_disk(DATASET_CACHE_PATH)
+    print(f"✓ Dataset cached! Next run will be instant.")
+
     print(f"Loaded {len(dataset)} training examples")
     return dataset
 
@@ -99,11 +124,16 @@ def setup_model_and_tokenizer():
     """Load model and tokenizer using Unsloth for full fine-tuning."""
     print(f"Loading model: {MODEL_NAME}")
 
+    # Use local cache directory to avoid re-downloading
+    model_cache_dir = os.path.join(CACHE_DIR, "models")
+    os.makedirs(model_cache_dir, exist_ok=True)
+
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=MODEL_NAME,
         max_seq_length=MAX_SEQ_LENGTH,
         dtype=DTYPE,
         load_in_4bit=LOAD_IN_4BIT,
+        cache_dir=model_cache_dir,  # Cache models locally
     )
 
     # For full fine-tuning: enable gradient checkpointing on the base model
