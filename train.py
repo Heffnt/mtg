@@ -1,6 +1,6 @@
 """
 Unsloth Full Fine-Tuning Script for MTG Card Training
-Optimized for 8x H200 GPUs (140GB VRAM each)
+Supports both single-GPU and multi-GPU training
 """
 
 import json
@@ -10,10 +10,15 @@ import wandb
 from unsloth import FastLanguageModel
 from trl import SFTTrainer
 from transformers import TrainingArguments, DataCollatorForSeq2Seq
+import torch
 
 # ============================================================================
 # CONFIGURATION - Modify these parameters as needed
 # ============================================================================
+
+# GPU Configuration
+NUM_GPUS = 1  # Set to 1 for single GPU, 8 for multi-GPU, or None for auto-detect
+AUTO_DETECT_GPUS = NUM_GPUS is None
 
 # Model Configuration
 MODEL_NAME = "qihoo360/TinyR1-32B"
@@ -29,9 +34,9 @@ WANDB_ENTITY = "heffnt-worcester-polytechnic-institute"
 WANDB_PROJECT = "mtg-draft-training"
 WANDB_RUN_NAME = None  # Auto-generate if None
 
-# Training Hyperparameters (optimized for 8x H200)
+# Training Hyperparameters (defaults for single GPU; auto-adjusted for multi-GPU)
 PER_DEVICE_TRAIN_BATCH_SIZE = 2
-GRADIENT_ACCUMULATION_STEPS = 4
+GRADIENT_ACCUMULATION_STEPS = 32  # Default: single GPU (effective batch ~64)
 LEARNING_RATE = 2e-5
 NUM_TRAIN_EPOCHS = 3
 WARMUP_STEPS = 100
@@ -44,7 +49,8 @@ BF16 = True  # Use bfloat16 precision
 FP16 = False
 
 # DeepSpeed Configuration
-USE_DEEPSPEED = True  # Enable DeepSpeed ZeRO-3 for multi-GPU
+USE_DEEPSPEED = True  # Enable DeepSpeed ZeRO-3
+CPU_OFFLOAD = True  # Default: True for single GPU, auto-adjusted for multi-GPU
 
 # Checkpoint & Logging
 OUTPUT_DIR = "outputs"
@@ -121,23 +127,55 @@ def setup_model_and_tokenizer():
     return model, tokenizer
 
 # ============================================================================
+# GPU DETECTION AND AUTO-CONFIGURATION
+# ============================================================================
+
+def get_gpu_config():
+    """Detect GPU count and adjust training configuration."""
+    global NUM_GPUS, GRADIENT_ACCUMULATION_STEPS, CPU_OFFLOAD
+
+    if AUTO_DETECT_GPUS:
+        NUM_GPUS = torch.cuda.device_count()
+        print(f"Auto-detected {NUM_GPUS} GPU(s)")
+    else:
+        print(f"Using configured {NUM_GPUS} GPU(s)")
+
+    # Auto-adjust gradient accumulation for multi-GPU to maintain effective batch size ~64
+    # Single GPU: batch=2, grad_accum=32 -> effective=64
+    # 8 GPUs: batch=2, grad_accum=4 -> effective=64
+    if NUM_GPUS > 1:
+        GRADIENT_ACCUMULATION_STEPS = max(1, 32 // NUM_GPUS)
+        CPU_OFFLOAD = False  # Keep on GPU for multi-GPU
+        print(f"Multi-GPU detected: Adjusted gradient_accumulation_steps to {GRADIENT_ACCUMULATION_STEPS}")
+        print(f"Multi-GPU detected: Disabled CPU offloading")
+    else:
+        print(f"Single GPU: gradient_accumulation_steps={GRADIENT_ACCUMULATION_STEPS}")
+        print(f"Single GPU: CPU offloading={'enabled' if CPU_OFFLOAD else 'disabled'}")
+
+    return NUM_GPUS
+
+# ============================================================================
 # DEEPSPEED CONFIGURATION
 # ============================================================================
 
 def create_deepspeed_config():
-    """Create DeepSpeed ZeRO-3 configuration for multi-GPU training."""
+    """Create DeepSpeed ZeRO-3 configuration, adapting to single or multi-GPU."""
     if not USE_DEEPSPEED:
         return None
-    
+
+    # Configure offloading based on CPU_OFFLOAD setting
+    if CPU_OFFLOAD:
+        # Single GPU: offload to CPU to save VRAM
+        offload_config = {"device": "cpu", "pin_memory": True}
+    else:
+        # Multi-GPU: keep on GPU for performance
+        offload_config = {"device": "none"}
+
     deepspeed_config = {
         "zero_optimization": {
             "stage": 3,
-            "offload_optimizer": {
-                "device": "none"  # Keep on GPU with 140GB VRAM
-            },
-            "offload_param": {
-                "device": "none"  # Keep on GPU
-            },
+            "offload_optimizer": offload_config,
+            "offload_param": offload_config,
             "overlap_comm": True,
             "contiguous_gradients": True,
             "reduce_bucket_size": 5e8,
@@ -154,13 +192,14 @@ def create_deepspeed_config():
         "train_micro_batch_size_per_gpu": "auto",
         "wall_clock_breakdown": False
     }
-    
+
     # Save config to file
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     config_path = os.path.join(OUTPUT_DIR, "ds_config.json")
     with open(config_path, 'w') as f:
         json.dump(deepspeed_config, f, indent=2)
-    
+
+    print(f"DeepSpeed config saved to {config_path}")
     return config_path
 
 # ============================================================================
@@ -169,6 +208,9 @@ def create_deepspeed_config():
 
 def train():
     """Main training function."""
+    # Detect and configure GPU setup
+    num_gpus = get_gpu_config()
+
     # Initialize WandB
     wandb.init(
         entity=WANDB_ENTITY,
@@ -177,20 +219,23 @@ def train():
         config={
             "model": MODEL_NAME,
             "max_seq_length": MAX_SEQ_LENGTH,
+            "num_gpus": num_gpus,
             "per_device_batch_size": PER_DEVICE_TRAIN_BATCH_SIZE,
             "gradient_accumulation_steps": GRADIENT_ACCUMULATION_STEPS,
+            "effective_batch_size": PER_DEVICE_TRAIN_BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS * num_gpus,
             "learning_rate": LEARNING_RATE,
             "epochs": NUM_TRAIN_EPOCHS,
             "warmup_steps": WARMUP_STEPS,
+            "cpu_offload": CPU_OFFLOAD,
         }
     )
-    
+
     # Load dataset
     dataset = prepare_dataset()
-    
+
     # Load model and tokenizer
     model, tokenizer = setup_model_and_tokenizer()
-    
+
     # Create DeepSpeed config if enabled
     deepspeed_config = create_deepspeed_config()
     
