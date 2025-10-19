@@ -9,10 +9,11 @@ dependencies:
   - python>=3.11
 
   # PyTorch pinned with matching CUDA to avoid op mismatches
-  - pytorch::pytorch=2.8.*
-  - pytorch::pytorch-cuda=12.8
-  - pytorch::torchvision=0.23.*
-  - pytorch::torchaudio=2.8.*
+  # Note: Unsloth only supports PyTorch 2.5.x (as of Oct 2025)
+  - pytorch::pytorch=2.5.1
+  - pytorch::pytorch-cuda=12.1
+  - pytorch::torchvision=0.20.1
+  - pytorch::torchaudio=2.5.1
   
   # Core ML/AI frameworks
   - conda-forge::transformers
