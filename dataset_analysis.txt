@@ -1,0 +1,237 @@
+================================================================================
+DATASET ANALYSIS REPORT FOR LLM FINE-TUNING
+================================================================================
+Generated: 2025-10-19 01:28:02
+Dataset Directory: /home/ntheffernan/mtg/splits_full
+NOTE: Training set analyzed using 50,000 sample examples
+      (Statistics are projected from sample to full dataset)
+================================================================================
+
+1. DATASET OVERVIEW
+--------------------------------------------------------------------------------
+Total Examples: 2,785,920
+Estimated Total Tokens: ~1,438,363,929
+
+Split Distribution:
+  Train   :  2,730,201 examples (98.00%) (analyzed 50,000)
+  Valid   :     27,859 examples ( 1.00%)
+  Test    :     27,860 examples ( 1.00%)
+
+2. DATA FORMAT
+--------------------------------------------------------------------------------
+Format: ChatML (JSON Lines with messages array)
+Structure: Each example contains:
+  - System message: Sets context as MTG expert
+  - User message: Query about MTG card
+  - Assistant message: Card details/response
+
+System Prompts Found:
+  [38,357 occurrences] You are an expert Magic: The Gathering player with comprehensive knowledge of rules, cards, and comp
+  [3,879 occurrences] You are a helpful assistant with knowledge about Magic: The Gathering.
+  [2,602 occurrences] You are a helpful assistant, with expert knowledge of Magic: the Gathering. You will be provided wit
+  [1,475 occurrences] You are a helpful assistant with deep reasoning capabilities. Think step by step in <think> tags. Wr
+  [457 occurrences] You are an unbiased, uncensored, helpful assistant.
+
+3. DETAILED STATISTICS PER SPLIT
+--------------------------------------------------------------------------------
+
+TRAIN SPLIT:
+  Examples: 2,730,201
+  Avg Tokens per Example: ~516.2
+  Total Tokens (estimated): ~1,409,210,828
+  Avg Conversation Turns: 3.0
+
+  Message Length Statistics (characters):
+    Average: 687.4
+    Median:  113.0
+    Min:     1
+    Max:     159368
+
+  User Query Length (characters):
+    Average: 268.4
+
+  Assistant Response Length (characters):
+    Average: 1651.1
+    Min:     1
+    Max:     159368
+
+VALID SPLIT:
+  Examples: 27,859
+  Avg Tokens per Example: ~527.4
+  Total Tokens (estimated): ~14,691,651
+  Avg Conversation Turns: 3.0
+
+  Message Length Statistics (characters):
+    Average: 702.1
+    Median:  113.0
+    Min:     0
+    Max:     159368
+
+  User Query Length (characters):
+    Average: 277.9
+
+  Assistant Response Length (characters):
+    Average: 1683.7
+    Min:     1
+    Max:     159368
+
+TEST SPLIT:
+  Examples: 27,860
+  Avg Tokens per Example: ~519.1
+  Total Tokens (estimated): ~14,461,450
+  Avg Conversation Turns: 3.0
+
+  Message Length Statistics (characters):
+    Average: 690.6
+    Median:  113.0
+    Min:     1
+    Max:     159368
+
+  User Query Length (characters):
+    Average: 266.9
+
+  Assistant Response Length (characters):
+    Average: 1662.3
+    Min:     1
+    Max:     159368
+
+4. CONTENT ANALYSIS
+--------------------------------------------------------------------------------
+
+Card Types Distribution (Training Set Sample):
+  Creature       :   29,697 (42.51%)
+  Land           :    9,019 (12.91%)
+  Artifact       :    8,297 (11.88%)
+  Sorcery        :    7,493 (10.73%)
+  Instant        :    7,056 (10.10%)
+  Enchantment    :    5,924 ( 8.48%)
+  Planeswalker   :    1,962 ( 2.81%)
+  Tribal         :      407 ( 0.58%)
+
+Card Rarities Distribution (Training Set Sample):
+  Rare           :   15,274 (37.41%)
+  Common         :   14,412 (35.29%)
+  Uncommon       :   11,075 (27.12%)
+  Mythic Rare    :       73 ( 0.18%)
+
+Sample Mana Costs (first 20 unique):
+  {n!}, {"kwarg1": ...}, {x}, {10}, { HEARTS, DIAMONDS, CLUBS, SPADES }, {1:1, 2:2, 3:1}, {
+  accessKeyId: 'your_access_key_id',
+  secretAccessKey: 'your_secret_access_key',
+  region: 'your_region'
+}, {
+    // Split the sentence into an array of words
+    var words = sentence.split(' ');
+
+    // Reverse the array of words
+    var reversedWords = words.reverse();
+
+    // Join the reversed array back into a string
+    var reversedSentence = reversedWords.join(' ');
+
+    return reversedSentence;
+}, {U/B}, {1,2,3,6}, {U1, U2, …, Uk}, {MEX}, {s}, {
+                'did': record.did,
+                'rev': record.rev,
+                'size': record.size,
+                'form': record.form,
+                'created_date': record.created_date,
+                'updated_date': record.updated_date
+            }, {'Mercury': 0.4, 'Venus': 0.7, 'Earth': 1.0, 'Mars': 1.5, 'Jupiter':5.2}, {i=0 to k}, {i+1}, {3,4,5}, {DNK}, {tick}
+
+5. DATA QUALITY ASSESSMENT
+--------------------------------------------------------------------------------
+
+Quality Indicators:
+  ✓ Consistent format: ChatML with system/user/assistant roles
+  ✓ Large dataset: 2,785,920 total examples
+  ✓ Good split ratio: ~98% train, ~1% validation, ~1% test
+  ✓ Substantial responses: avg 1651 chars
+  ✓ No empty responses detected in sample
+
+6. FINE-TUNING RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+Model Configuration:
+  • Max Sequence Length: 2048 tokens (avg example ~516 tokens)
+  • Recommended to use chat template formatting
+  • Consider using BF16 precision for better numerical stability
+
+Training Strategy:
+  • Large dataset (2,730,201 examples) - consider:
+    - LoRA/QLoRA for efficiency (or full fine-tuning with DeepSpeed ZeRO-3)
+    - Smaller learning rate (1e-5 to 5e-5)
+    - 1-3 epochs should be sufficient
+    - Use gradient accumulation to increase effective batch size
+    - Multi-GPU training highly recommended
+
+Hyperparameter Suggestions:
+  • Batch Size: 2-8 per device (depending on GPU memory)
+  • Gradient Accumulation: 4-32 steps (for effective batch ~64-256)
+  • Learning Rate: 2e-5 (with warmup)
+  • Warmup Steps: 100-500
+  • Weight Decay: 0.01
+  • Max Grad Norm: 1.0
+
+Validation Strategy:
+  • Use validation set (27,859 examples)
+  • Monitor validation loss every 500-1000 steps
+  • Early stopping if validation loss plateaus
+  • Keep test set (27,860 examples) for final evaluation
+
+7. DOMAIN-SPECIFIC NOTES (Magic: The Gathering)
+--------------------------------------------------------------------------------
+
+Dataset Characteristics:
+  • Task: MTG card knowledge and information retrieval
+  • Format: Question-answering about card details
+  • Domain: Structured game rules and card mechanics
+
+Expected Model Capabilities After Fine-Tuning:
+  • Recall card names, mana costs, types, and rarities
+  • Describe card abilities and rules text
+  • Provide power/toughness for creatures
+  • Answer queries about specific MTG cards
+
+Potential Improvements:
+  • Add examples with card interactions and combos
+  • Include ruling clarifications
+  • Add deck-building advice examples
+  • Include format legality information
+
+8. SAMPLE EXAMPLES
+--------------------------------------------------------------------------------
+
+Sample Training Examples:
+
+Example 1:
+  [SYSTEM]: You are an expert Magic: The Gathering player with comprehensive knowledge of rules, cards, and competitive play.
+  [USER]: Describe Island.
+  [ASSISTANT]: Island
+Common
+Basic Land — Island
+
+({T}: Add {U}.)
+
+Example 2:
+  [SYSTEM]: You are an expert Magic: The Gathering player with comprehensive knowledge of rules, cards, and competitive play.
+  [USER]: What's Pearled Unicorn?
+  [ASSISTANT]: Pearled Unicorn {2}{W}
+Common
+Creature — Unicorn
+2/2
+
+Example 3:
+  [SYSTEM]: You are an expert Magic: The Gathering player with comprehensive knowledge of rules, cards, and competitive play.
+  [USER]: What does Ur-Drago do?
+  [ASSISTANT]: Ur-Drago {3}{U}{U}{B}{B}
+Rare
+Legendary Creature — Elemental
+
+First strike
+Creatures with swampwalk can be blocked as though they didn't have swampwalk.
+4/4
+
+================================================================================
+END OF REPORT
+================================================================================

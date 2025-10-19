@@ -21,7 +21,7 @@ NUM_GPUS = 1  # Set to 1 for single GPU, 8 for multi-GPU, or None for auto-detec
 AUTO_DETECT_GPUS = NUM_GPUS is None
 
 # Model Configuration
-MODEL_NAME = "qihoo360/TinyR1-32B"
+MODEL_NAME = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
 MAX_SEQ_LENGTH = 2048
 DTYPE = None  # Auto-detect (will use bfloat16 for H200)
 LOAD_IN_4BIT = False  # Set to False for full fine-tuning
