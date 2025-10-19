@@ -1,6 +1,34 @@
 # MTG Draft Training
 
-Full fine-tuning of LLMs for Magic: The Gathering card knowledge using Unsloth.
+Teaching language models to truly understand Magic: The Gathering.
+
+## Vision
+
+Magic: The Gathering has over 25,000 unique cards spanning 30+ years of design. Each card is a complex artifact with mechanics, rules interactions, flavor text, and strategic implications. This project aims to imbue large language models with deep, comprehensive MTG knowledge through full parameter fine-tuning.
+
+### Why This Matters
+
+Modern LLMs have limited and often outdated knowledge of MTG cards. They hallucinate card names, confuse mechanics, and lack the nuanced understanding that makes MTG strategically rich. This project seeks to create models that:
+
+- **Know every card**: From Alpha to the latest set, with accurate oracle text
+- **Understand interactions**: Rules, combos, synergies, and edge cases
+- **Support players**: Draft advice, deck building, rules questions
+- **Preserve history**: MTG's evolution as both game and cultural phenomenon
+
+### The Approach
+
+This isn't LoRA or parameter-efficient fine-tuning. This is **full fine-tuning** of 32B+ parameter models using 2.7M+ training examples. We're teaching the model to internalize MTG knowledge at a fundamental level, updating every parameter to create true domain expertise.
+
+Think of it as the difference between memorizing flash cards versus years of playing the game.
+
+## Technical Highlights
+
+- **Full parameter fine-tuning**: All 32.8B parameters are updated, not just adapter layers
+- **Massive scale**: 2.7M+ training examples across train/validation/test splits
+- **Production-grade training**: DeepSpeed ZeRO-3 for efficient multi-GPU parallelism
+- **Modern architecture**: Built on Unsloth for 2x faster training with lower memory usage
+- **Reproducible**: Complete environment specification and training configuration
+- **Observable**: Full WandB integration for real-time monitoring and analysis
 
 ## Hardware Requirements
 
@@ -77,6 +105,20 @@ All hyperparameters are configured at the top of `train.py`. Key settings:
 - `BF16`: Use bfloat16 precision (default: True)
 - `USE_DEEPSPEED`: Enable DeepSpeed ZeRO-3 (default: True)
 
+### Dataset
+
+The training dataset contains **2.7M+ examples** teaching comprehensive MTG knowledge:
+
+- **Card descriptions**: Complete oracle text for every card
+- **Rules interactions**: How mechanics work together
+- **Strategic context**: When and why to use cards
+- **Historical knowledge**: Set information, rarity, artist details
+
+The dataset is split into:
+- `splits_full/train.jsonl` - 2.73M training examples
+- `splits_full/valid.jsonl` - 27.8K validation examples
+- `splits_full/test.jsonl` - 27.8K test examples
+
 ### Data Format
 
 The training script expects data in JSONL format with ChatML structure:
@@ -84,9 +126,9 @@ The training script expects data in JSONL format with ChatML structure:
 ```json
 {
   "messages": [
-    {"role": "system", "content": "System prompt"},
-    {"role": "user", "content": "User question"},
-    {"role": "assistant", "content": "Assistant response"}
+    {"role": "system", "content": "You are an expert Magic: The Gathering player..."},
+    {"role": "user", "content": "Describe Markov Waltzer."},
+    {"role": "assistant", "content": "Markov Waltzer {2}{R}{W}\nUncommon\nCreature — Vampire\n\nFlying, haste\nAt the beginning of combat on your turn, up to two target creatures you control each get +1/+0 until end of turn.\n1/3"}
   ]
 }
 ```
@@ -115,6 +157,22 @@ https://wandb.ai/heffnt-worcester-polytechnic-institute/mtg-draft-training
 - DeepSpeed ZeRO-3 distributes the model, optimizer states, and gradients across all 8 GPUs
 - With 140GB VRAM per GPU, parameters are kept on GPU (no CPU offloading needed)
 - Training time will depend on dataset size; expect several hours for large datasets
+
+## Future Directions
+
+This project is a foundation for deeper MTG-AI integration:
+
+- **Draft assistants**: Real-time advice during drafts based on pack contents and deck synergies
+- **Rules engines**: Automated judge calls and comprehensive rules explanations
+- **Deck builders**: AI that understands meta, budget constraints, and playstyle preferences
+- **Historical analysis**: Tracking how cards, mechanics, and strategies evolved over 30 years
+- **Accessibility**: Making MTG knowledge available to new players and veterans alike
+
+The goal isn't to replace human creativity or expertise, but to make MTG knowledge more accessible and help players engage more deeply with the game they love.
+
+## Contributing
+
+This is an open project. If you have ideas for improving the training data, architecture, or applications, contributions are welcome. The codebase is designed to be modular and hackable.
 
 ## Troubleshooting
 
